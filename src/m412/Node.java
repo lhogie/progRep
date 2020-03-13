@@ -10,8 +10,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import javax.swing.JFrame;
-
 public class Node
 {
 	public static final int DEFAULT_PORT = 44456;
@@ -55,21 +53,14 @@ public class Node
 					// blocks until a packet arrives
 					udp.receive(p);
 
-					// converts the bytes to a Java message
 					try
 					{
+						// decodes the message object out of the bytes received
 						Message msg = Message.fromBytes(buf);
 
 						// registers the sender as a new neighbors for this node
-						PeerInfo peer = findPeerInfo(p.getAddress(), p.getPort());
-
-						// this peer was unknown so far
-						if (peer == null)
-							// create a new entry from him
-							peers.add(peer = new PeerInfo(p.getAddress(), p.getPort()));
-
-						// updates the username, maybe
-						peer.username = msg.senders.get(msg.senders.size() - 1);
+						ensurePeerKnown(p.getAddress(), p.getPort(),
+								msg.senders.get(msg.senders.size() - 1));
 
 						// if the message was not already received in the past
 						if ( ! receivedMessages.contains(msg.ID))
@@ -77,11 +68,11 @@ public class Node
 							// registers this message to as to never process it
 							receivedMessages.add(msg.ID);
 
+							// notify of the incoming message
+							messageHandler.accept(msg);
+
 							// forwards the message to all my neighbors
 							broadcast(msg);
-
-							// prints the incoming message
-							messageHandler.accept(msg);
 						}
 					}
 					catch (Exception e)
@@ -97,8 +88,21 @@ public class Node
 				// some I/O error. Let's see what happened
 				e.printStackTrace();
 			}
-
 		});
+	}
+
+	private PeerInfo ensurePeerKnown(InetAddress ip, int port, String username)
+	{
+		PeerInfo peer = findPeerInfo(ip, port);
+
+		// this peer was unknown so far
+		if (peer == null)
+			// create a new entry from him
+			peers.add(peer = new PeerInfo(ip, port));
+
+		// updates the username, maybe
+		peer.username = username;
+		return peer;
 	}
 
 	private PeerInfo findPeerInfo(InetAddress ip, int port)
@@ -130,7 +134,7 @@ public class Node
 		msg.makeSureImDeclaredAsTheSender(username);
 
 		// defines that streamed bytes will be stored in an array
-		byte[] buf = msg.toByteArray();
+		byte[] buf = msg.toBytes();
 
 		// then send it through an UDP datagram
 		DatagramPacket p = new DatagramPacket(buf, buf.length);
@@ -153,29 +157,6 @@ public class Node
 		PeerInfo i = new PeerInfo(InetAddress.getLocalHost(), port);
 		i.username = username;
 		return i;
-	}
-
-	public static void main(String[] args) throws IOException
-	{
-		String username = args[0];
-		int port = Integer.valueOf(args[1]);
-		Node node = new Node(username, port);
-
-		for (int offset = 1; offset < 5; ++offset)
-		{
-			PeerInfo p = new PeerInfo(InetAddress.getLocalHost(), node.port + offset);
-			node.peers.add(p);
-		}
-
-		// creates a Swing component for that node
-		NodeComponent gui = new NodeComponent(node);
-
-		// display this component in a Swing frame
-		JFrame frame = new JFrame(
-				node.createPeerInfo().toString() + " --- m412 P2P system");
-		frame.setContentPane(new NodeComponent(node));
-		frame.setSize(600, 800);
-		frame.setVisible(true);
 	}
 
 }

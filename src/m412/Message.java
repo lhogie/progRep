@@ -40,7 +40,7 @@ public class Message implements Serializable
 			senders.add(username);
 	}
 
-	public byte[] toByteArray()
+	public byte[] toBytes()
 	{
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
@@ -60,7 +60,6 @@ public class Message implements Serializable
 		{
 			throw new IllegalStateException(e);
 		}
-
 	}
 
 	public static Message fromBytes(byte[] buf) throws IOException, ClassNotFoundException
@@ -70,5 +69,4 @@ public class Message implements Serializable
 		in.close();
 		return msg;
 	}
-
 }

@@ -17,12 +17,8 @@ import javax.swing.JTextField;
 
 public class NodeComponent extends JComponent
 {
-
-	private final Node node;
-
 	public NodeComponent(Node node)
 	{
-		this.node = node;
 		JTextField tf = new JTextField();
 		JTextArea ta = new JTextArea();
 		JList<PeerInfo> peerList = new JList<>();
@@ -32,15 +28,15 @@ public class NodeComponent extends JComponent
 		rightPanel.add(BorderLayout.CENTER, ta);
 		rightPanel.add(BorderLayout.SOUTH, tf);
 
-		JSplitPane sp = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-				new JScrollPane(peerList), rightPanel);
-		add(sp);
 		setLayout(new GridLayout(1, 1));
+		add(new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+				new JScrollPane(peerList), rightPanel));
 
 		tf.addActionListener(e -> {
 			node.broadcast(new Message(tf.getText()));
 			tf.setText("");
 		});
+		
 		node.messageHandler = msg -> ta.append(msg.toString() + "\n");
 
 		// periodically updates peers list
