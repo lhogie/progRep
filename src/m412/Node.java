@@ -66,15 +66,13 @@ public class Node
 					DatagramPacket p = new DatagramPacket(buf, buf.length);
 
 					// blocks until a packet arrives
-					System.out.println("waiting for packet");
 					udp.receive(p);
-					System.out.println("packet received");
 
 					try
 					{
 						// decodes the message object out of the bytes received
 						Message msg = Message.fromBytes(buf);
-						System.out.println(msg);
+
 						// registers the sender as a new neighbors for this node
 						Peer peer = ensurePeerKnown(p.getAddress(), p.getPort());
 
