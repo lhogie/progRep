@@ -37,9 +37,12 @@ public class Node
 	{
 		this.username = username;
 		this.port = port;
+		System.out.println("opening UDP server on port " + port);
 		this.udp = new DatagramSocket(port);
 
-		String filename = System.getProperty("user.home") + "/peers.lst";
+		String filename = System.getProperty("user.home") + "/" + username + "-peers.txt";
+		System.out.println("reading " + filename);
+
 		peers = Peer.loadFromFile(new File(filename));
 
 		// starts the server
@@ -54,16 +57,18 @@ public class Node
 					DatagramPacket p = new DatagramPacket(buf, buf.length);
 
 					// blocks until a packet arrives
+					System.out.println("waiting for packet");
 					udp.receive(p);
+					System.out.println("packet received");
 
 					try
 					{
 						// decodes the message object out of the bytes received
 						Message msg = Message.fromBytes(buf);
-
+						System.out.println(msg);
 						// registers the sender as a new neighbors for this node
-						ensurePeerKnown(p.getAddress(), p.getPort(),
-								msg.senders.get(msg.senders.size() - 1));
+						String lastRelay = msg.senders.get(msg.senders.size() - 1);
+						ensurePeerKnown(p.getAddress(), p.getPort(), lastRelay);
 
 						// if the message was not already received in the past
 						if ( ! receivedMessages.contains(msg.ID))
@@ -91,7 +96,7 @@ public class Node
 				// some I/O error. Let's see what happened
 				e.printStackTrace();
 			}
-		});
+		}).start();
 	}
 
 	private Peer ensurePeerKnown(InetAddress ip, int port, String username)
