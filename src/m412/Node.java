@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 
 public class Node
 {
-	public static final int DEFAULT_PORT = 53457;
+	public static final int DEFAULT_PORT = 23457;
 
 	// this will be used for both sending and receiving of messages
 	final DatagramSocket udp;
