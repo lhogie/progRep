@@ -6,6 +6,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -43,7 +44,15 @@ public class Node
 		String filename = System.getProperty("user.home") + "/" + username + "-peers.txt";
 		System.out.println("reading " + filename);
 
-		peers = Peer.loadFromFile(new File(filename));
+		File f = new File(filename);
+
+		if ( ! f.exists())
+		{
+			String luchogiehome = "91.166.171.231\t" + DEFAULT_PORT;
+			Files.write(f.toPath(), luchogiehome.getBytes());
+		}
+
+		peers = Peer.loadFromFile(f);
 
 		// starts the server
 		new Thread(() -> {
@@ -67,8 +76,13 @@ public class Node
 						Message msg = Message.fromBytes(buf);
 						System.out.println(msg);
 						// registers the sender as a new neighbors for this node
-						String lastRelay = msg.senders.get(msg.senders.size() - 1);
-						ensurePeerKnown(p.getAddress(), p.getPort(), lastRelay);
+						Peer peer = ensurePeerKnown(p.getAddress(), p.getPort());
+
+						if ( ! msg.senders.isEmpty())
+						{
+							String lastRelay = msg.senders.get(msg.senders.size() - 1);
+							peer.username = lastRelay;
+						}
 
 						// if the message was not already received in the past
 						if ( ! receivedMessages.contains(msg.ID))
@@ -99,7 +113,7 @@ public class Node
 		}).start();
 	}
 
-	private Peer ensurePeerKnown(InetAddress ip, int port, String username)
+	private Peer ensurePeerKnown(InetAddress ip, int port)
 	{
 		Peer peer = findPeerInfo(ip, port);
 
@@ -108,8 +122,6 @@ public class Node
 			// create a new entry from him
 			peers.add(peer = new Peer(ip, port));
 
-		// updates the username, maybe
-		peer.username = username;
 		return peer;
 	}
 
