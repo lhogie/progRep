@@ -1,10 +1,10 @@
 package m412;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.Set;
@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 
 public class Node
 {
-	public static final int DEFAULT_PORT = 44456;
+	public static final int DEFAULT_PORT = 53457;
 
 	// this will be used for both sending and receiving of messages
 	final DatagramSocket udp;
@@ -28,16 +28,19 @@ public class Node
 	public Consumer<Message> messageHandler = msg -> System.out.println(msg);
 
 	// the peers known be this node
-	final Set<PeerInfo> peers = new HashSet<>();
+	final Set<Peer> peers;
 
 	// a set of IDs for all messages received in the past
 	final Set<Long> receivedMessages = new HashSet<>();
 
-	public Node(String username, int port) throws SocketException
+	public Node(String username, int port) throws IOException
 	{
 		this.username = username;
 		this.port = port;
 		this.udp = new DatagramSocket(port);
+
+		String filename = System.getProperty("user.home") + "/peers.lst";
+		peers = Peer.loadFromFile(new File(filename));
 
 		// starts the server
 		new Thread(() -> {
@@ -91,23 +94,23 @@ public class Node
 		});
 	}
 
-	private PeerInfo ensurePeerKnown(InetAddress ip, int port, String username)
+	private Peer ensurePeerKnown(InetAddress ip, int port, String username)
 	{
-		PeerInfo peer = findPeerInfo(ip, port);
+		Peer peer = findPeerInfo(ip, port);
 
 		// this peer was unknown so far
 		if (peer == null)
 			// create a new entry from him
-			peers.add(peer = new PeerInfo(ip, port));
+			peers.add(peer = new Peer(ip, port));
 
 		// updates the username, maybe
 		peer.username = username;
 		return peer;
 	}
 
-	private PeerInfo findPeerInfo(InetAddress ip, int port)
+	private Peer findPeerInfo(InetAddress ip, int port)
 	{
-		for (PeerInfo n : peers)
+		for (Peer n : peers)
 			if (n.ip.equals(ip) && n.port == port)
 				return n;
 
@@ -119,7 +122,7 @@ public class Node
 	 */
 	public void broadcast(Message msg)
 	{
-		for (PeerInfo n : peers)
+		for (Peer n : peers)
 		{
 			send(msg, n);
 		}
@@ -128,7 +131,7 @@ public class Node
 	/*
 	 * Sends the given message to the specified recipient node.
 	 */
-	public boolean send(Message msg, PeerInfo recipient)
+	public boolean send(Message msg, Peer recipient)
 	{
 		// make sure the message knows who's sending it
 		msg.makeSureImDeclaredAsTheSender(username);
@@ -152,9 +155,9 @@ public class Node
 		}
 	}
 
-	public PeerInfo createPeerInfo() throws UnknownHostException
+	public Peer createPeerInfo() throws UnknownHostException
 	{
-		PeerInfo i = new PeerInfo(InetAddress.getLocalHost(), port);
+		Peer i = new Peer(InetAddress.getLocalHost(), port);
 		i.username = username;
 		return i;
 	}

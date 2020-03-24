@@ -2,41 +2,45 @@ package m412;
 
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
-import java.awt.HeadlessException;
-import java.net.UnknownHostException;
 import java.util.Vector;
 
 import javax.swing.JComponent;
-import javax.swing.JFrame;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.border.TitledBorder;
 
 public class NodeComponent extends JComponent
 {
 	public NodeComponent(Node node)
 	{
 		JTextField tf = new JTextField();
+		tf.setBorder(new TitledBorder("Type your message/command here:"));
+
 		JTextArea ta = new JTextArea();
-		JList<PeerInfo> peerList = new JList<>();
+		ta.setBorder(new TitledBorder("Received messages"));
+
+		JList<Peer> peerList = new JList<>();
+		peerList.setBorder(new TitledBorder("Peers"));
+
 		ta.setEditable(false);
 
 		JPanel rightPanel = new JPanel(new BorderLayout());
-		rightPanel.add(BorderLayout.CENTER, ta);
+		rightPanel.add(BorderLayout.CENTER, new JScrollPane(ta));
 		rightPanel.add(BorderLayout.SOUTH, tf);
 
 		setLayout(new GridLayout(1, 1));
-		add(new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-				new JScrollPane(peerList), rightPanel));
+		add(new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(peerList),
+				rightPanel));
 
 		tf.addActionListener(e -> {
 			node.broadcast(new Message(tf.getText()));
 			tf.setText("");
 		});
-		
+
 		node.messageHandler = msg -> ta.append(msg.toString() + "\n");
 
 		// periodically updates peers list
