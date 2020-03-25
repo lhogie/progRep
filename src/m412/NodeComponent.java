@@ -27,7 +27,8 @@ public class NodeComponent extends JComponent
 		ta.setBorder(new TitledBorder("Received messages"));
 
 		JList<Peer> peerList = new JList<>();
-		peerList.setBorder(new TitledBorder("Peers"));
+		TitledBorder nbPeers = new TitledBorder("Peers");
+		peerList.setBorder(nbPeers);
 
 		ta.setEditable(false);
 
@@ -44,7 +45,7 @@ public class NodeComponent extends JComponent
 			tf.setText("");
 		});
 
-		node.messageHandler = msg -> ta.append(msg.toString() + "\n");
+		node.chat = msg -> ta.append(msg.toString() + "\n");
 
 		// periodically updates peers list
 		new Thread(() -> {
@@ -54,6 +55,7 @@ public class NodeComponent extends JComponent
 				{
 					Thread.sleep(1000);
 					peerList.setListData(new Vector(node.peers));
+					nbPeers.setTitle(node.peers.size() + " peer(s)");
 				}
 				catch (InterruptedException e)
 				{
@@ -66,8 +68,8 @@ public class NodeComponent extends JComponent
 	{
 		String username = JOptionPane.showInputDialog(null, "What is your username:",
 				System.getProperty("user.name"));
-		int port = Integer
-				.valueOf(JOptionPane.showInputDialog(null, "Which port:", Node.DEFAULT_PORT));
+		int port = Integer.valueOf(
+				JOptionPane.showInputDialog(null, "Which port:", Node.DEFAULT_PORT));
 
 		Node node = new Node(username, port);
 

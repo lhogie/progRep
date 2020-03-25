@@ -10,20 +10,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-public class Message implements Serializable
+public class Message<E> implements Serializable
 {
 	private static final long serialVersionUID = 1L;
 
 	public long ID = new Random().nextLong();
-	private Object content;
+	private E content;
 	public final List<String> senders = new ArrayList<>();
 
-	public Message(Object content)
+	public Message(E content)
 	{
 		this.content = content;
 	}
 
-	public Object getContent()
+	public E getContent()
 	{
 		return content;
 	}
@@ -68,5 +68,15 @@ public class Message implements Serializable
 		Message msg = (Message) in.readObject();
 		in.close();
 		return msg;
+	}
+
+	public String sender()
+	{
+		return senders.get(0);
+	}
+
+	public String lastRelay()
+	{
+		return senders.get(senders.size() - 1);
 	}
 }

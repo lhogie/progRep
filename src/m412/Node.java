@@ -26,7 +26,7 @@ public class Node
 
 	// this consumer sets what to do when a message is received
 	// by default the message is simply printed on to stdout
-	public Consumer<Message> messageHandler = msg -> System.out.println(msg);
+	public Consumer<Message> chat;
 
 	// the peers known be this node
 	final Set<Peer> peers;
@@ -54,6 +54,14 @@ public class Node
 
 		peers = Peer.loadFromFile(f);
 
+		new Thread(() -> {
+			while (true)
+			{
+				Utils.sleep(1);
+				broadcast(new Message(peers));
+			}
+		}).start();
+
 		// starts the server
 		new Thread(() -> {
 			try
@@ -76,20 +84,29 @@ public class Node
 						// registers the sender as a new neighbors for this node
 						Peer peer = ensurePeerKnown(p.getAddress(), p.getPort());
 
+						// updates the username, if any
 						if ( ! msg.senders.isEmpty())
 						{
-							String lastRelay = msg.senders.get(msg.senders.size() - 1);
-							peer.username = lastRelay;
+							peer.username = msg.lastRelay();
 						}
 
 						// if the message was not already received in the past
 						if ( ! receivedMessages.contains(msg.ID))
 						{
 							// registers this message to as to never process it
+							// again
 							receivedMessages.add(msg.ID);
+							Object content = msg.getContent();
+
+							// this is not a chat message
+							if (msg instanceof PeerListMessage)
+							{
+								Set<Peer> peers = (Set<Peer>) content;
+								peers.addAll(peers);
+							}
 
 							// notify of the incoming message
-							messageHandler.accept(msg);
+							chat.accept(msg);
 
 							// forwards the message to all my neighbors
 							broadcast(msg);

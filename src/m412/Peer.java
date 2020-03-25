@@ -6,11 +6,12 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Set;
 
-public class Peer
+public class Peer implements Serializable
 {
 	public final InetAddress ip;
 	public final int port;
