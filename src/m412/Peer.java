@@ -75,11 +75,13 @@ public class Peer implements Serializable
 		return s;
 	}
 
-	public void toFile(Set<Peer> peers, File outputFile) throws IOException
+	public static void toFile(Set<Peer> peers, File outputFile) throws IOException
 	{
 		PrintWriter writer = new PrintWriter(new FileWriter(outputFile));
 		peers.forEach(peer -> writer.println(peer.ip.getHostName() + "\t" + peer.port));
 		writer.close();
 	}
+
+
 
 }

@@ -58,6 +58,22 @@ public class Node
 			while (true)
 			{
 				Utils.sleep(1);
+				
+				try
+				{
+					Peer.toFile(peers, f);
+				}
+				catch (IOException e)
+				{
+					e.printStackTrace();
+				}
+			}
+		});
+		
+		new Thread(() -> {
+			while (true)
+			{
+				Utils.sleep(1);
 				broadcast(new Message(peers));
 			}
 		}).start();
@@ -104,9 +120,11 @@ public class Node
 								Set<Peer> peers = (Set<Peer>) content;
 								peers.addAll(peers);
 							}
-
-							// notify of the incoming message
-							chat.accept(msg);
+							else
+							{
+								// notify of the incoming message
+								chat.accept(msg);
+							}
 
 							// forwards the message to all my neighbors
 							broadcast(msg);
