@@ -1,4 +1,4 @@
-package m412;
+package m412_2020;
 
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
