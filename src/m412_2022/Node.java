@@ -23,8 +23,6 @@ public class Node {
 	static final Random random = new Random();
 	Serializer serializer = new FSTSerializer();
 	File directory = new File(System.getProperty("user.home") + "/" + "m412");
-	
-	
 
 	public Node(int port, String nickname) throws SocketException, UnknownHostException {
 		this.socket = new DatagramSocket(port);
@@ -35,8 +33,7 @@ public class Node {
 			System.out.println("creating directory " + directory.getAbsolutePath());
 			directory.mkdirs();
 		}
-		
-		
+
 		final String prefix = "192.168.225.";
 
 		for (var suffix : new int[] { 56, 137, 36, 28, 54, 129, 167, 34, 79, 164, 75, 4, 230, 112 }) {
@@ -94,14 +91,18 @@ public class Node {
 
 				try {
 					socket.receive(packet);
-					peers.add(packet.getAddress());
+
+					if (!peers.contains(packet.getAddress())) {
+						System.out.println("adding new peer " + packet.getAddress());
+					}
+
 					var data = Arrays.copyOf(packet.getData(), packet.getLength());
 					var msg = serializer.deserializeMessage(data);
 
 					// if the message was never received
 					if (!alreadyReceivedMessages.contains(msg.id)) {
 						alreadyReceivedMessages.add(msg.id);
-						
+
 						if (msg instanceof TextMessage) {
 							var ack = new ACKMessage();
 							ack.originalMessageID = msg.id;
@@ -113,7 +114,7 @@ public class Node {
 						} else if (msg instanceof FileListRequest) {
 							var r = new FileListResponse();
 							r.filenames = Arrays.asList(directory.list());
-							System.out.println(r);
+							sendToAllPeers(r);
 						} else {
 							throw new IllegalStateException("unknown message type:  " + msg.getClass().getName());
 						}
