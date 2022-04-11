@@ -1,12 +1,14 @@
 package m412_2022;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
@@ -15,6 +17,7 @@ import java.util.Set;
 
 public class Node {
 	private final DatagramSocket socket;
+	private final ServerSocket tcpServer;
 	private final Set<InetAddress> candidateAddresses = new HashSet<>();
 	private final Set<InetAddress> peers = new HashSet<>();
 	private final int port;
@@ -24,8 +27,9 @@ public class Node {
 	Serializer serializer = new FSTSerializer();
 	File directory = new File(System.getProperty("user.home") + "/" + "m412");
 
-	public Node(int port, String nickname) throws SocketException, UnknownHostException {
+	public Node(int port, String nickname) throws IOException {
 		this.socket = new DatagramSocket(port);
+		this.tcpServer = new ServerSocket(port);
 		this.port = port;
 		this.nickname = nickname;
 
@@ -67,6 +71,16 @@ public class Node {
 
 							if (cmd.equals("list")) {
 								sendToAllPeers(new FileListRequest());
+							} else if (cmd.equals("get")) {
+								var from = InetAddress.getByName(tokens[1]);
+								var filename = tokens[2];
+								var socket = new Socket(from, port);
+								socket.getOutputStream().write(filename.getBytes());
+								var file = new File(directory, filename);
+								var fos = new FileOutputStream(file);
+								socket.getInputStream().transferTo(fos);
+								socket.close();
+								System.out.println("file received!");
 							} else {
 								System.err.println("Unknown command " + cmd);
 							}
@@ -117,7 +131,7 @@ public class Node {
 							sendToAllPeers(r);
 						} else if (msg instanceof FileListResponse) {
 							var r = new FileListResponse();
-							System.out.println(packet.getAddress() + "> " + r.filenames);
+							System.out.println("file shared by " + packet.getAddress() + "> " + r.filenames);
 						} else {
 							throw new IllegalStateException("unknown message type:  " + msg.getClass().getName());
 						}
@@ -125,6 +139,22 @@ public class Node {
 						sendToAllPeers(msg);
 					}
 
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}).start();
+
+		// TCP server thread
+		new Thread(() -> {
+			while (true) {
+				try {
+					var socket = tcpServer.accept();
+					var ios = socket.getInputStream();
+					var filename = new String(ios.readAllBytes());
+					var file = new File(directory, filename);
+					new FileInputStream(file).transferTo(socket.getOutputStream());
+					socket.close();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
