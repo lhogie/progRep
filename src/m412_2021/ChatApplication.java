@@ -10,7 +10,7 @@ public class ChatApplication extends AbstractApplication {
 	JTextField tf = new JTextField();
 	JTextArea ta = new JTextArea();
 
-	public ChatApplication(NetworkAdapter network) {
+	public ChatApplication(Network network) {
 		super(network);		
 		JFrame f = new JFrame("client");
 		f.setSize(600, 800);
@@ -20,12 +20,12 @@ public class ChatApplication extends AbstractApplication {
 		f.setVisible(true);
 
 		tf.addActionListener(e -> {
-			server.broadcast(null, tf.getText());
+			server.broadcast(tf.getText(), p -> true);
 		});
 	}
 
 	@Override
-	public void process(PeerInfo from, Object o) {
+	public void newMessage(PeerInfo from, Object o) {
 		System.out.println(from + ": " + o);
 		ta.setText(ta.getText() + "\n" + o);
 	}

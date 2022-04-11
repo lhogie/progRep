@@ -1,13 +1,13 @@
 package m412_2021;
+
 public abstract class AbstractApplication {
+	// this provides the networking functionality
+	final Network server;
 
-	final NetworkAdapter server;
-
-	public AbstractApplication(NetworkAdapter server) {
+	public AbstractApplication(Network server) {
 		this.server = server;
 		this.server.client = this;
 	}
 
-	
-	public abstract void process(PeerInfo from, Object o);
+	public abstract void newMessage(PeerInfo from, Object o);
 }

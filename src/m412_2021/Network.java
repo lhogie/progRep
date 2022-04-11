@@ -1,4 +1,5 @@
 package m412_2021;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -9,14 +10,15 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-public class NetworkAdapter {
+public class Network {
 	Set<PeerInfo> peers = new HashSet<>();
 	private final DatagramSocket udpServer = new DatagramSocket(5567);
 	public AbstractApplication client;
 
-	public NetworkAdapter() throws IOException {
+	public Network() throws IOException {
 		System.out.println("UDP server listening on port " + udpServer.getLocalPort());
 		var buf = new byte[64000];
 
@@ -31,8 +33,9 @@ public class NetworkAdapter {
 						peers.add(from = new PeerInfo(p.getAddress(), p.getPort()));
 					}
 
-					client.process(from, p);
-					broadcast(from, fromBytes(p.getData()));
+					client.newMessage(from, p);
+					final var fromTmp = from;
+					broadcast(fromBytes(p.getData()), peer -> !peer.equals(fromTmp));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -55,12 +58,12 @@ public class NetworkAdapter {
 		return peers.stream().map(c -> c.ip).collect(Collectors.toSet());
 	}
 
-	public void broadcast(PeerInfo from, Object o) {
+	public void broadcast(Object o, Predicate<PeerInfo> pred) {
 		var buf = toBytes(o);
 		var p = new DatagramPacket(buf, buf.length);
 
 		for (var peer : peers) {
-			if(!peer.equals(from)) {
+			if (pred.test(peer)) {
 				p.setAddress(peer.ip);
 				p.setPort(peer.port);
 

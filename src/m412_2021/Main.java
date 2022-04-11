@@ -3,7 +3,7 @@ import java.io.IOException;
 
 public class Main {
 	public static void main(String[] args) throws InterruptedException, IOException {
-		var network = new NetworkAdapter();
+		var network = new Network();
 		new ChatApplication(network);
 	}
 }

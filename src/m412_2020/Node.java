@@ -11,8 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public class Node
-{
+public class Node {
 	public static final int DEFAULT_PORT = 23457;
 
 	// this will be used for both sending and receiving of messages
@@ -34,8 +33,7 @@ public class Node
 	// a set of IDs for all messages received in the past
 	final Set<Long> receivedMessages = new HashSet<>();
 
-	public Node(String username, int port) throws IOException
-	{
+	public Node(String username, int port) throws IOException {
 		this.username = username;
 		this.port = port;
 		System.out.println("opening UDP server on port " + port);
@@ -46,8 +44,7 @@ public class Node
 
 		File f = new File(filename);
 
-		if ( ! f.exists())
-		{
+		if (!f.exists()) {
 			String luchogiehome = "91.166.171.231\t" + DEFAULT_PORT;
 			Files.write(f.toPath(), luchogiehome.getBytes());
 		}
@@ -55,24 +52,19 @@ public class Node
 		peers = Peer.loadFromFile(f);
 
 		new Thread(() -> {
-			while (true)
-			{
+			while (true) {
 				Utils.sleep(1);
-				
-				try
-				{
+
+				try {
 					Peer.toFile(peers, f);
-				}
-				catch (IOException e)
-				{
+				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			}
 		});
-		
+
 		new Thread(() -> {
-			while (true)
-			{
+			while (true) {
 				Utils.sleep(1);
 				broadcast(new Message(peers));
 			}
@@ -80,20 +72,17 @@ public class Node
 
 		// starts the server
 		new Thread(() -> {
-			try
-			{
+			try {
 				byte[] buf = new byte[10000];
 
-				while (true)
-				{
+				while (true) {
 					// creates a new packet for the reception of a new message
 					DatagramPacket p = new DatagramPacket(buf, buf.length);
 
 					// blocks until a packet arrives
 					udp.receive(p);
 
-					try
-					{
+					try {
 						// decodes the message object out of the bytes received
 						Message msg = Message.fromBytes(buf);
 
@@ -101,27 +90,22 @@ public class Node
 						Peer peer = ensurePeerKnown(p.getAddress(), p.getPort());
 
 						// updates the username, if any
-						if ( ! msg.senders.isEmpty())
-						{
+						if (!msg.senders.isEmpty()) {
 							peer.username = msg.lastRelay();
 						}
 
 						// if the message was not already received in the past
-						if ( ! receivedMessages.contains(msg.ID))
-						{
+						if (!receivedMessages.contains(msg.ID)) {
 							// registers this message to as to never process it
 							// again
 							receivedMessages.add(msg.ID);
 							Object content = msg.getContent();
 
 							// this is not a chat message
-							if (msg instanceof PeerListMessage)
-							{
+							if (msg instanceof PeerListMessage) {
 								Set<Peer> peers = (Set<Peer>) content;
 								peers.addAll(peers);
-							}
-							else
-							{
+							} else {
 								// notify of the incoming message
 								chat.accept(msg);
 							}
@@ -129,25 +113,19 @@ public class Node
 							// forwards the message to all my neighbors
 							broadcast(msg);
 						}
-					}
-					catch (Exception e)
-					{
-						System.err.println(
-								"Error processing from " + p.getAddress().getHostName());
+					} catch (Exception e) {
+						System.err.println("Error processing from " + p.getAddress().getHostName());
 						e.printStackTrace(System.out);
 					}
 				}
-			}
-			catch (Exception e)
-			{
+			} catch (Exception e) {
 				// some I/O error. Let's see what happened
 				e.printStackTrace();
 			}
 		}).start();
 	}
 
-	private Peer ensurePeerKnown(InetAddress ip, int port)
-	{
+	private Peer ensurePeerKnown(InetAddress ip, int port) {
 		Peer peer = findPeerInfo(ip, port);
 
 		// this peer was unknown so far
@@ -158,8 +136,7 @@ public class Node
 		return peer;
 	}
 
-	private Peer findPeerInfo(InetAddress ip, int port)
-	{
+	private Peer findPeerInfo(InetAddress ip, int port) {
 		for (Peer n : peers)
 			if (n.ip.equals(ip) && n.port == port)
 				return n;
@@ -170,10 +147,8 @@ public class Node
 	/**
 	 * Sends the given message to all known nodes.
 	 */
-	public void broadcast(Message msg)
-	{
-		for (Peer n : peers)
-		{
+	public void broadcast(Message msg) {
+		for (Peer n : peers) {
 			send(msg, n);
 		}
 	}
@@ -181,8 +156,7 @@ public class Node
 	/*
 	 * Sends the given message to the specified recipient node.
 	 */
-	public boolean send(Message msg, Peer recipient)
-	{
+	public boolean send(Message msg, Peer recipient) {
 		// make sure the message knows who's sending it
 		msg.makeSureImDeclaredAsTheSender(username);
 
@@ -194,19 +168,15 @@ public class Node
 		p.setAddress(recipient.ip);
 		p.setPort(recipient.port);
 
-		try
-		{
+		try {
 			udp.send(p);
 			return true;
-		}
-		catch (IOException e)
-		{
+		} catch (IOException e) {
 			return false;
 		}
 	}
 
-	public Peer createPeerInfo() throws UnknownHostException
-	{
+	public Peer createPeerInfo() throws UnknownHostException {
 		Peer i = new Peer(InetAddress.getLocalHost(), port);
 		i.username = username;
 		return i;
