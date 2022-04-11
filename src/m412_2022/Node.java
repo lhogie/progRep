@@ -123,6 +123,7 @@ public class Node {
 
 					if (!peers.contains(packet.getAddress())) {
 						System.out.println("adding new peer " + packet.getAddress());
+						peers.add(packet.getAddress());
 					}
 
 					var data = Arrays.copyOf(packet.getData(), packet.getLength());
