@@ -94,13 +94,14 @@ public class Node {
 
 				try {
 					socket.receive(packet);
+					peers.add(packet.getAddress());
 					var data = Arrays.copyOf(packet.getData(), packet.getLength());
 					var msg = serializer.deserializeMessage(data);
 
 					// if the message was never received
 					if (!alreadyReceivedMessages.contains(msg.id)) {
 						alreadyReceivedMessages.add(msg.id);
-
+						
 						if (msg instanceof TextMessage) {
 							var ack = new ACKMessage();
 							ack.originalMessageID = msg.id;
