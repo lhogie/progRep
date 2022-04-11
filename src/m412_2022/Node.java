@@ -167,7 +167,15 @@ public class Node {
 					var ios = socket.getInputStream();
 					var filename = new String(ios.readAllBytes());
 					var file = new File(directory, filename);
-					new FileInputStream(file).transferTo(socket.getOutputStream());
+
+					if (file.exists()) {
+						System.err.println("you already have this file");
+					} else {
+						var fis = new FileInputStream(file);
+						fis.transferTo(socket.getOutputStream());
+						fis.close();
+					}
+
 					socket.close();
 				} catch (IOException e) {
 					e.printStackTrace();
