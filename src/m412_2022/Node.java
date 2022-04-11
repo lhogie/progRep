@@ -62,43 +62,38 @@ public class Node {
 
 					if (line.startsWith("/")) {
 						line = line.substring(1);
-						var tokens = line.split(" +");
+						var cmdScanner = new Scanner(line);
+						var cmd = cmdScanner.next();
 
-						if (tokens.length == 0) {
-							System.err.println("command not specified");
-						} else {
-							var cmdScanner = new Scanner(System.in);
-							var cmd = cmdScanner.next();
+						if (cmd == null) {
+							System.err.println("missing command");
+						} else if (cmd.equals("list")) {
+							System.out.println("sending list request");
+							sendToAllPeers(new FileListRequest());
+						} else if (cmd.equals("get")) {
+							var ip = cmdScanner.next();
 
-							if (cmd == null) {
-								System.err.println("missing command");
-							} else if (cmd.equals("list")) {
-								sendToAllPeers(new FileListRequest());
-							} else if (cmd.equals("get")) {
-								var ip = cmdScanner.next();
-
-								if (ip == null) {
-									System.err.println("missing IP and filename");
-								} else {
-									var from = InetAddress.getByName(ip);
-									var filename = cmdScanner.next();
-
-									if (filename == null) {
-										System.err.println("missing filename");
-									} else {
-										var socket = new Socket(from, port);
-										socket.getOutputStream().write(filename.getBytes());
-										var file = new File(directory, filename);
-										var fos = new FileOutputStream(file);
-										socket.getInputStream().transferTo(fos);
-										socket.close();
-										fos.close();
-										System.out.println("file received!");
-									}
-								}
+							if (ip == null) {
+								System.err.println("missing IP and filename");
 							} else {
-								System.err.println("Unknown command " + cmd);
+								var from = InetAddress.getByName(ip);
+								var filename = cmdScanner.next();
+
+								if (filename == null) {
+									System.err.println("missing filename");
+								} else {
+									var socket = new Socket(from, port);
+									socket.getOutputStream().write(filename.getBytes());
+									var file = new File(directory, filename);
+									var fos = new FileOutputStream(file);
+									socket.getInputStream().transferTo(fos);
+									socket.close();
+									fos.close();
+									System.out.println("file received!");
+								}
 							}
+						} else {
+							System.err.println("Unknown command " + cmd);
 						}
 					} else {
 						var msg = new TextMessage();
