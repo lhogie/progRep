@@ -67,20 +67,34 @@ public class Node {
 						if (tokens.length == 0) {
 							System.err.println("command not specified");
 						} else {
-							var cmd = tokens[0];
+							var cmdScanner = new Scanner(System.in);
+							var cmd = cmdScanner.next();
 
-							if (cmd.equals("list")) {
+							if (cmd == null) {
+								System.err.println("missing command");
+							} else if (cmd.equals("list")) {
 								sendToAllPeers(new FileListRequest());
 							} else if (cmd.equals("get")) {
-								var from = InetAddress.getByName(tokens[1]);
-								var filename = tokens[2];
-								var socket = new Socket(from, port);
-								socket.getOutputStream().write(filename.getBytes());
-								var file = new File(directory, filename);
-								var fos = new FileOutputStream(file);
-								socket.getInputStream().transferTo(fos);
-								socket.close();
-								System.out.println("file received!");
+								var ip = cmdScanner.next();
+
+								if (ip == null) {
+									System.err.println("missing IP and filename");
+								} else {
+									var from = InetAddress.getByName(ip);
+									var filename = cmdScanner.next();
+
+									if (filename == null) {
+										System.err.println("missing filename");
+									} else {
+										var socket = new Socket(from, port);
+										socket.getOutputStream().write(filename.getBytes());
+										var file = new File(directory, filename);
+										var fos = new FileOutputStream(file);
+										socket.getInputStream().transferTo(fos);
+										socket.close();
+										System.out.println("file received!");
+									}
+								}
 							} else {
 								System.err.println("Unknown command " + cmd);
 							}
