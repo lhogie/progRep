@@ -36,7 +36,7 @@ public class Node {
 
 		final String prefix = "192.168.225.";
 
-		for (var suffix : new int[] { 56, 137, 36, 28, 54, 129, 167, 34, 79, 164, 75, 4, 230, 112 }) {
+		for (var suffix : new int[] { 56, 137, 36, 28, 29, 54, 129, 167, 34, 79, 164, 75, 4, 230, 112 }) {
 			candidateAddresses.add(InetAddress.getByName(prefix + suffix));
 		}
 
@@ -115,6 +115,9 @@ public class Node {
 							var r = new FileListResponse();
 							r.filenames = Arrays.asList(directory.list());
 							sendToAllPeers(r);
+						} else if (msg instanceof FileListResponse) {
+							var r = new FileListResponse();
+							System.out.println(packet.getAddress() + "> " + r.filenames);
 						} else {
 							throw new IllegalStateException("unknown message type:  " + msg.getClass().getName());
 						}
