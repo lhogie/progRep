@@ -113,7 +113,7 @@ public class Node {
 						} else if (msg instanceof FileListRequest) {
 							var r = new FileListResponse();
 							r.filenames = Arrays.asList(directory.list());
-							System.out.println(msg);
+							System.out.println(r);
 						} else {
 							throw new IllegalStateException("unknown message type:  " + msg.getClass().getName());
 						}
