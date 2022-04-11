@@ -92,6 +92,7 @@ public class Node {
 										var fos = new FileOutputStream(file);
 										socket.getInputStream().transferTo(fos);
 										socket.close();
+										fos.close();
 										System.out.println("file received!");
 									}
 								}
