@@ -1,5 +1,7 @@
 package m412_2022;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -99,8 +101,8 @@ public class Node {
 									} else {
 										System.out.println("downloading file from " + fromName + " at " + ip);
 										var socket = new Socket(ip, port);
-										socket.getOutputStream().write(filename.length());
-										System.out.println("filename len= " + filename.length());
+										var dos = new DataOutputStream(socket.getOutputStream());
+										dos.writeUTF(filename);
 										socket.getOutputStream().write(filename.getBytes());
 										var file = new File(directory, filename);
 										var fos = new FileOutputStream(file);
@@ -199,11 +201,8 @@ public class Node {
 				new Thread(() -> {
 					try {
 						var socket = tcpServer.accept();
-						var ios = socket.getInputStream();
-						int len = ios.read();
-						System.out.println("filename len= " + len);
-
-						var filename = new String(ios.readNBytes(len));
+						var ios = new DataInputStream(socket.getInputStream());
+						var filename = ios.readUTF();
 						System.out.println("sending file  " + filename);
 						var file = new File(directory, filename);
 
