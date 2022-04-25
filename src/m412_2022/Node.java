@@ -145,7 +145,7 @@ public class Node {
 							sendToAllPeers(ack);
 							System.out.println(msg);
 						} else if (msg instanceof ACKMessage) {
-							System.out.println(msg);
+							//System.out.println(msg);
 							acks.addAll(msg.route);
 						} else if (msg instanceof FileListRequest) {
 							System.out.println("Request received from " + msg.route);
