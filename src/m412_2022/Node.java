@@ -12,6 +12,7 @@ import java.net.Socket;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Set;
@@ -20,8 +21,8 @@ public class Node {
 	private final DatagramSocket socket;
 	private final ServerSocket tcpServer;
 	private final Set<InetAddress> candidateAddresses = new HashSet<>();
-	private final Set<InetAddress> peers = new HashSet<>();
-	private final Set<String> acks = new HashSet<>();
+	private final Set<InetAddress> peersAddress = new HashSet<>();
+	private final Map<String, InetAddress> name2address = new HashMap<>();
 	private final int port;
 	private final Set<Long> alreadyReceivedMessages = new HashSet<>();
 	private final String nickname;
@@ -47,19 +48,20 @@ public class Node {
 		}
 
 		// choose random peers
-		while (peers.size() < 4) {
+		while (peersAddress.size() < 4) {
 			var p = candidateAddresses.toArray(new InetAddress[0])[random.nextInt(candidateAddresses.size())];
-			peers.add(p);
-			System.out.println("peers: " + peers);
+			peersAddress.add(p);
+			System.out.println("peers: " + peersAddress);
 		}
-		var files = new HashMap<String, Set<String>>();
+
+		var filename2ownerName = new HashMap<String, Set<String>>();
 
 		// user input thread
 		new Thread(() -> {
 			final Scanner userInput = new Scanner(System.in);
 
-			try {
-				while (true) {
+			while (true) {
+				try {
 					System.out.println("Please type a message: ");
 					var line = userInput.nextLine();
 
@@ -71,35 +73,41 @@ public class Node {
 						if (cmd == null) {
 							System.err.println("missing command");
 						} else if (cmd.equals("peers")) {
-							System.out.println(peers);
-						} else if (cmd.equals("acks")) {
-							System.out.println(acks);
+							System.out.println(peersAddress);
 						} else if (cmd.equals("list")) {
 							System.out.println("sending list request");
 							sendToAllPeers(new FileListRequest());
 						} else if (cmd.equals("tcpget")) {
 							cmdScanner.useDelimiter("$");
 							var filename = cmdScanner.next();
+							System.out.println("searching for " + filename);
 
 							if (filename == null) {
 								System.err.println("missing filename");
 							} else {
 								filename = filename.trim();
-								var owners = files.get(filename);
+								var ownersName = filename2ownerName.get(filename);
 
-								if (owners.isEmpty()) {
+								if (ownersName == null || ownersName.isEmpty()) {
 									System.err.println("none is known to have this file");
 								} else {
-									var from = owners.iterator().next();
-									var socket = new Socket(from, port);
-									socket.getOutputStream().write(filename.getBytes());
-									socket.getOutputStream().close();
-									var file = new File(directory, filename);
-									var fos = new FileOutputStream(file);
-									socket.getInputStream().transferTo(fos);
-									socket.close();
-									fos.close();
-									System.out.println("file received!");
+									var fromName = ownersName.iterator().next();
+									var ip = name2address.get(fromName);
+
+									if (ip == null) {
+										System.err.println("can't get the IP address of " + fromName);
+									} else {
+										System.out.println("downloading file from " + fromName + " at " + ip);
+										var socket = new Socket(ip, port);
+										socket.getOutputStream().write(filename.length());
+										System.out.println("filename len= " + filename.length());
+										socket.getOutputStream().write(filename.getBytes());
+										var file = new File(directory, filename);
+										var fos = new FileOutputStream(file);
+										socket.getInputStream().transferTo(fos);
+										socket.close();
+										System.out.println("file received!");
+									}
 								}
 							}
 						} else {
@@ -110,9 +118,9 @@ public class Node {
 						msg.text = line;
 						sendToAllPeers(msg);
 					}
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
 		}).start();
 
@@ -126,13 +134,16 @@ public class Node {
 				try {
 					socket.receive(packet);
 
-					if (!peers.contains(packet.getAddress())) {
+					if (!peersAddress.contains(packet.getAddress())) {
 						System.out.println("adding new peer " + packet.getAddress());
-						peers.add(packet.getAddress());
+						peersAddress.add(packet.getAddress());
 					}
 
 					var data = Arrays.copyOf(packet.getData(), packet.getLength());
 					var msg = serializer.deserializeMessage(data);
+
+					var neighbor = msg.route.get(msg.route.size() - 1);
+					name2address.put(neighbor, packet.getAddress());
 
 					// if the message was never received
 					if (!alreadyReceivedMessages.contains(msg.id)) {
@@ -145,8 +156,7 @@ public class Node {
 							sendToAllPeers(ack);
 							System.out.println(msg);
 						} else if (msg instanceof ACKMessage) {
-							//System.out.println(msg);
-							acks.addAll(msg.route);
+							System.out.println(msg);
 						} else if (msg instanceof FileListRequest) {
 							System.out.println("Request received from " + msg.route);
 							var r = new FileListResponse();
@@ -161,10 +171,10 @@ public class Node {
 
 								// registers the file location into the local node
 								for (var filename : r.filenames) {
-									var owners = files.get(filename);
+									var owners = filename2ownerName.get(filename);
 
 									if (owners == null) {
-										files.put(filename, owners = new HashSet<>());
+										filename2ownerName.put(filename, owners = new HashSet<>());
 									}
 
 									owners.add(r.route.get(0));
@@ -186,24 +196,30 @@ public class Node {
 		// TCP server thread
 		new Thread(() -> {
 			while (true) {
-				try {
-					var socket = tcpServer.accept();
-					var ios = socket.getInputStream();
-					var filename = new String(ios.readAllBytes());
-					var file = new File(directory, filename);
+				new Thread(() -> {
+					try {
+						var socket = tcpServer.accept();
+						var ios = socket.getInputStream();
+						int len = ios.read();
+						System.out.println("filename len= " + len);
 
-					if (file.exists()) {
-						System.err.println("you already have this file");
-					} else {
-						var fis = new FileInputStream(file);
-						fis.transferTo(socket.getOutputStream());
-						fis.close();
+						var filename = new String(ios.readNBytes(len));
+						System.out.println("sending file  " + filename);
+						var file = new File(directory, filename);
+
+						if (file.exists()) {
+							System.err.println("you already have this file");
+						} else {
+							var fis = new FileInputStream(file);
+							fis.transferTo(socket.getOutputStream());
+							fis.close();
+						}
+
+						socket.close();
+					} catch (IOException e) {
+						e.printStackTrace();
 					}
-
-					socket.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+				}).start();
 			}
 		}).start();
 	}
@@ -215,9 +231,15 @@ public class Node {
 		// System.out.println("sending " + new String(buf));
 
 		// and send it to all my peers
-		for (var peer : peers) {
-			DatagramPacket packet = new DatagramPacket(buf, buf.length, peer, port);
-			socket.send(packet);
+		for (var ip : peersAddress) {
+			DatagramPacket packet = new DatagramPacket(buf, buf.length, ip, port);
+
+			try {
+				socket.send(packet);
+			} catch (Exception e) {
+				System.err.println("error: " + e.getMessage());
+				System.err.println("peer: " + ip);
+			}
 			packet = new DatagramPacket(buf, buf.length);
 		}
 	}
