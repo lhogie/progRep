@@ -21,6 +21,7 @@ public class Node {
 	private final ServerSocket tcpServer;
 	private final Set<InetAddress> candidateAddresses = new HashSet<>();
 	private final Set<InetAddress> peers = new HashSet<>();
+	private final Set<String> acks = new HashSet<>();
 	private final int port;
 	private final Set<Long> alreadyReceivedMessages = new HashSet<>();
 	private final String nickname;
@@ -69,6 +70,10 @@ public class Node {
 
 						if (cmd == null) {
 							System.err.println("missing command");
+						} else if (cmd.equals("peers")) {
+							System.out.println(peers);
+						} else if (cmd.equals("acks")) {
+							System.out.println(acks);
 						} else if (cmd.equals("list")) {
 							System.out.println("sending list request");
 							sendToAllPeers(new FileListRequest());
@@ -141,12 +146,15 @@ public class Node {
 							System.out.println(msg);
 						} else if (msg instanceof ACKMessage) {
 							System.out.println(msg);
+							acks.addAll(msg.route);
 						} else if (msg instanceof FileListRequest) {
+							System.out.println("Request received from " + msg.route);
 							var r = new FileListResponse();
 							r.filenames = Arrays.asList(directory.list());
 							sendToAllPeers(r);
 						} else if (msg instanceof FileListResponse) {
-							var r = new FileListResponse();
+							System.out.println("list response received from " + msg.route);
+							var r = (FileListResponse) msg;
 
 							if (!r.filenames.isEmpty()) {
 								System.out.println("files shared by " + msg.route.get(0) + "> " + r.filenames);
@@ -200,7 +208,7 @@ public class Node {
 		}).start();
 	}
 
-	public void sendToAllPeers(Message msg) throws IOException {
+	public synchronized void sendToAllPeers(Message msg) throws IOException {
 		alreadyReceivedMessages.add(msg.id);
 		msg.route.add(nickname);
 		var buf = serializer.serialize(msg);
