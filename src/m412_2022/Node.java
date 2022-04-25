@@ -10,6 +10,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Scanner;
@@ -38,7 +39,7 @@ public class Node {
 			directory.mkdirs();
 		}
 
-		final String prefix = "192.168.225.";
+		final String prefix = "192.168.136.";
 
 		for (var suffix : new int[] { 56, 137, 36, 28, 29, 54, 129, 167, 34, 79, 164, 75, 4, 230, 112 }) {
 			candidateAddresses.add(InetAddress.getByName(prefix + suffix));
@@ -50,6 +51,7 @@ public class Node {
 			peers.add(p);
 			System.out.println("peers: " + peers);
 		}
+		var files = new HashMap<String, Set<String>>();
 
 		// user input thread
 		new Thread(() -> {
@@ -70,20 +72,23 @@ public class Node {
 						} else if (cmd.equals("list")) {
 							System.out.println("sending list request");
 							sendToAllPeers(new FileListRequest());
-						} else if (cmd.equals("get")) {
-							var ip = cmdScanner.next();
+						} else if (cmd.equals("tcpget")) {
+							cmdScanner.useDelimiter("$");
+							var filename = cmdScanner.next();
 
-							if (ip == null) {
-								System.err.println("missing IP and filename");
+							if (filename == null) {
+								System.err.println("missing filename");
 							} else {
-								var from = InetAddress.getByName(ip);
-								var filename = cmdScanner.next();
+								filename = filename.trim();
+								var owners = files.get(filename);
 
-								if (filename == null) {
-									System.err.println("missing filename");
+								if (owners.isEmpty()) {
+									System.err.println("none is known to have this file");
 								} else {
+									var from = owners.iterator().next();
 									var socket = new Socket(from, port);
 									socket.getOutputStream().write(filename.getBytes());
+									socket.getOutputStream().close();
 									var file = new File(directory, filename);
 									var fos = new FileOutputStream(file);
 									socket.getInputStream().transferTo(fos);
@@ -142,7 +147,21 @@ public class Node {
 							sendToAllPeers(r);
 						} else if (msg instanceof FileListResponse) {
 							var r = new FileListResponse();
-							System.out.println("file shared by " + packet.getAddress() + "> " + r.filenames);
+
+							if (!r.filenames.isEmpty()) {
+								System.out.println("files shared by " + msg.route.get(0) + "> " + r.filenames);
+
+								// registers the file location into the local node
+								for (var filename : r.filenames) {
+									var owners = files.get(filename);
+
+									if (owners == null) {
+										files.put(filename, owners = new HashSet<>());
+									}
+
+									owners.add(r.route.get(0));
+								}
+							}
 						} else {
 							throw new IllegalStateException("unknown message type:  " + msg.getClass().getName());
 						}
