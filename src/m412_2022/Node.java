@@ -1,5 +1,7 @@
 package m412_2022;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -18,6 +20,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 public class Node {
 	private final DatagramSocket socket;
@@ -106,7 +110,8 @@ public class Node {
 										socket.getOutputStream().write(filename.getBytes());
 										var file = new File(directory, filename);
 										var fos = new FileOutputStream(file);
-										socket.getInputStream().transferTo(fos);
+										var gzipIn = new GZIPInputStream(socket.getInputStream());
+										gzipIn.transferTo(fos);
 										socket.close();
 										System.out.println("file received!");
 									}
@@ -142,6 +147,9 @@ public class Node {
 					}
 
 					var data = Arrays.copyOf(packet.getData(), packet.getLength());
+					var gzipIn = new GZIPInputStream(new ByteArrayInputStream(data));
+					data = gzipIn.readAllBytes();
+
 					var msg = serializer.deserializeMessage(data);
 
 					var neighbor = msg.route.get(msg.route.size() - 1);
@@ -210,7 +218,9 @@ public class Node {
 							System.err.println("you already have this file");
 						} else {
 							var fis = new FileInputStream(file);
-							fis.transferTo(socket.getOutputStream());
+							var gzipOut = new GZIPOutputStream(socket.getOutputStream());
+							fis.transferTo(gzipOut);
+							gzipOut.close();
 							fis.close();
 						}
 
@@ -227,6 +237,13 @@ public class Node {
 		alreadyReceivedMessages.add(msg.id);
 		msg.route.add(nickname);
 		var buf = serializer.serialize(msg);
+
+		var o = new ByteArrayOutputStream();
+		var gzipO = new GZIPOutputStream(o);
+		gzipO.write(buf);
+		gzipO.close();
+		buf = o.toByteArray();
+
 		// System.out.println("sending " + new String(buf));
 
 		// and send it to all my peers
