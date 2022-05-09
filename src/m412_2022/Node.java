@@ -47,7 +47,7 @@ public class Node {
 			directory.mkdirs();
 		}
 
-		final String prefix = "192.168.136.";
+		final String prefix = "192.168.216.";
 
 		for (var suffix : new int[] { 56, 137, 36, 28, 29, 54, 129, 167, 34, 79, 164, 75, 4, 230, 112 }) {
 			candidateAddresses.add(InetAddress.getByName(prefix + suffix));
@@ -206,29 +206,33 @@ public class Node {
 		// TCP server thread
 		new Thread(() -> {
 			while (true) {
-				new Thread(() -> {
-					try {
-						var socket = tcpServer.accept();
-						var ios = new DataInputStream(socket.getInputStream());
-						var filename = ios.readUTF();
-						System.out.println("sending file  " + filename);
-						var file = new File(directory, filename);
+				try {
+					var socket = tcpServer.accept();
+					new Thread(() -> {
+						try {
+							var ios = new DataInputStream(socket.getInputStream());
+							var filename = ios.readUTF();
+							System.out.println("sending file  " + filename);
+							var file = new File(directory, filename);
 
-						if (file.exists()) {
-							System.err.println("you already have this file");
-						} else {
-							var fis = new FileInputStream(file);
-							var gzipOut = new GZIPOutputStream(socket.getOutputStream());
-							fis.transferTo(gzipOut);
-							gzipOut.close();
-							fis.close();
+							if (file.exists()) {
+								System.err.println("you already have this file");
+							} else {
+								var fis = new FileInputStream(file);
+								var gzipOut = new GZIPOutputStream(socket.getOutputStream());
+								fis.transferTo(gzipOut);
+								gzipOut.close();
+								fis.close();
+							}
+
+							socket.close();
+						} catch (IOException e) {
+							e.printStackTrace();
 						}
-
-						socket.close();
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}).start();
+					}).start();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 		}).start();
 	}
