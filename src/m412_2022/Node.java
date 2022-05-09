@@ -60,7 +60,7 @@ public class Node {
 
 		// user input thread
 		new Thread(() -> {
-			final Scanner userInput = new Scanner(System.in);
+			final var userInput = new Scanner(System.in);
 
 			while (true) {
 				try {
