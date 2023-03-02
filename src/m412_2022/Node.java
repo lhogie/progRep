@@ -13,6 +13,8 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,7 +28,6 @@ import java.util.zip.GZIPOutputStream;
 public class Node {
 	private final DatagramSocket socket;
 	private final ServerSocket tcpServer;
-	private final Set<InetAddress> candidateAddresses = new HashSet<>();
 	private final Set<InetAddress> peersAddress = new HashSet<>();
 	private final Map<String, InetAddress> name2address = new HashMap<>();
 	private final int port;
@@ -47,18 +48,15 @@ public class Node {
 			directory.mkdirs();
 		}
 
-		final String prefix = "192.168.216.";
+		var peerListFile = new File(System.getProperty("user.home") + "/node-peers.lst");
 
-		for (var suffix : new int[] { 56, 137, 36, 28, 29, 54, 129, 167, 34, 79, 164, 75, 4, 230, 112 }) {
-			candidateAddresses.add(InetAddress.getByName(prefix + suffix));
-		}
-
-		// choose random peers
-		while (peersAddress.size() < 4) {
-			var p = candidateAddresses.toArray(new InetAddress[0])[random.nextInt(candidateAddresses.size())];
-			peersAddress.add(p);
-			System.out.println("peers: " + peersAddress);
-		}
+		Files.lines(peerListFile.toPath()).forEach(l -> {
+			try {
+				peersAddress.add(InetAddress.getByName(l));
+			} catch (UnknownHostException e) {
+				throw new RuntimeException(e);
+			}
+		});
 
 		var filename2ownerName = new HashMap<String, Set<String>>();
 
