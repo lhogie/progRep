@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,14 +49,54 @@ public class Node {
 		}
 	}
 
-	public class ResultHandler<R> {
+	public static interface ResultListener<R> {
+		void newResult(R r);
+	}
+
+	public abstract class ResultHandler<R> {
 		long creationDate;
-		R accumulator;
+		List<R> results;
+		List<Thread> threads = new ArrayList<>();
+		public List<ResultListener<R>> listeners = new ArrayList<>();
+
+		public void addResult(R r) {
+			if (results != null)
+				results.add(r);
+
+			threads.forEach(t -> t.interrupt());
+			listeners.forEach(l -> l.newResult(r));
+		}
+
+		public void wait(Supplier<Boolean> terminationCondition) {
+			threads.add(Thread.currentThread());
+
+			while (!terminationCondition.get()) {
+				try {
+					Thread.sleep(Long.MAX_VALUE);
+				} catch (InterruptedException e) {
+				}
+			}
+
+			threads.remove(Thread.currentThread());
+		}
+	}
+
+	public abstract class Future<R> extends ResultHandler<R> {
+		R value;
 		int nbResults;
 
-		public ResultHandler(R init) {
-			this.accumulator = init;
+		public Future(R init) {
+			this.value = init;
 		}
+
+		@Override
+		public void addResult(R r) {
+			reduce(r);
+			++nbResults;
+			super.addResult(r);
+		}
+
+		public abstract void reduce(R r);
 	}
 
 	List<InetAddress> neighbors = new ArrayList<>();
@@ -66,7 +107,7 @@ public class Node {
 	Set<String> alreadySent = new HashSet<>();
 	Map<String, Command> userCmds = new HashMap<>();
 	Set<Service> services = new HashSet<>();
-	Map<String, ResultHandler<?>> accumulators = new HashMap<>();
+	Map<String, Future<?>> accumulators = new HashMap<>();
 	String nickname = System.getProperty("user.name");
 	final int chunkSize = 64000;
 
@@ -78,16 +119,30 @@ public class Node {
 		userCmds.put("ls", args -> {
 			var msg = createMsgNode(Map.of("type", "ls", "mode", "query"));
 			var id = msg.get("id").asText();
-			accumulators.put(id, new ResultHandler<>(new HashSet<String>()));
+			accumulators.put(id, new Future<Set<String>>(new HashSet<String>()) {
+				@Override
+				public void reduce(Set<String> r) {
+					value.addAll(r);
+				}
+			});
+
 			send(msg);
 			System.out.println("results in " + id);
 		});
 
 		userCmds.put("a", args -> {
-			accumulators.entrySet().forEach(e -> System.out
-					.println(e.getKey() + "\t" + e.getValue().nbResults + "\t" + e.getValue().accumulator));
+			accumulators.entrySet().forEach(
+					e -> System.out.println(e.getKey() + "\t" + e.getValue().nbResults + "\t" + e.getValue().value));
 		});
-		
+
+		userCmds.put("wait", args -> {
+			var name = args.get(0);
+			var e = accumulators.get(name);
+			e.wait(() -> e.nbResults == 1);
+			System.out.println(e.nbResults + "\t" + e.value);
+
+		});
+
 		userCmds.put("ca", args -> accumulators.clear());
 		userCmds.put("who", args -> neighbors.forEach(p -> System.out.println(p)));
 		userCmds.put("senders", args -> senders.forEach(p -> System.out.println(p)));
@@ -95,7 +150,6 @@ public class Node {
 		userCmds.put("exit", args -> System.exit(0));
 
 		services.add(new Service() {
-
 			@Override
 			public String getName() {
 				return "ls";
@@ -113,8 +167,8 @@ public class Node {
 			@Override
 			public void response(JsonNode msg) throws IOException {
 				var reqID = msg.get("requestID").asText();
-				var a = (ResultHandler<Set<String>>) accumulators.get(reqID);
-				((ArrayNode) msg.get("content")).forEach(n -> a.accumulator.add(n.asText()));
+				var a = (Future<Set<String>>) accumulators.get(reqID);
+				((ArrayNode) msg.get("content")).forEach(n -> a.value.add(n.asText()));
 				a.nbResults++;
 			}
 		});
@@ -173,8 +227,9 @@ public class Node {
 					System.out.println("received: " + new String(bytes));
 					var msg = (ObjectNode) mapper.readTree(bytes);
 
-					if (!alreadySent.contains(msg.get("id").asText()))
-						send(msg);
+					if (!alreadySent.contains(msg.get("id").asText())) {
+						send(msg); // forward
+					}
 
 					((ArrayNode) msg.get("route")).forEach(n -> senders.add(n.asText()));
 					var type = msg.get("type").asText();
